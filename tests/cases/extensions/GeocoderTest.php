@@ -13,7 +13,7 @@ class GeocoderTest extends \lithium\test\Unit {
 
 	public function testGeocodeLookup() {
 		$location = Geocoder::find('google', '1600 Pennsylvania Avenue Northwest, Washington, DC');
-		$expected = array('latitude' => 38.897596, 'longitude' => -77.036455);
+		$expected = array('latitude' => 38.8976463, 'longitude' => -77.036562);
 		$this->assertEqual($expected, $location);
 	}
 
@@ -21,6 +21,18 @@ class GeocoderTest extends \lithium\test\Unit {
 		Geocoder::__init();
 		Geocoder::services('foo', array('url' => 'http://localhost', 'parser' => null));
 		$this->assertEqual(array('google', 'yahoo', 'foo'), array_keys(Geocoder::services()));
+	}
+
+	public function testExifConversion() {
+		$exif = array(
+			'GPSLatitudeRef' => 'N',
+			'GPSLatitude' => array('40/1', '4586/100', '0/1'),
+			'GPSLongitudeRef' => 'W',
+			'GPSLongitude' => array('73/1', '5841/100', '0/1')
+		);
+		$data = Geocoder::exifCoords($exif);
+		$expected = array('latitude' => 40.7643, 'longitude' => -73.9735);
+		$this->assertEqual($expected, $data);
 	}
 }
 

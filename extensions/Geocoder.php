@@ -89,6 +89,60 @@ class Geocoder extends \lithium\core\StaticObject {
 	}
 
 	/**
+	 * Returns an array of geo coordinates from an EXIF data structure.
+	 *
+	 * This method expects an array of EXIF data containing the following keys:
+	 *
+	 * @see http://php.net/manual/en/function.exif-read-data.php PHP Manual: exif_read_data()
+	 * @param array $data An array containing an EXIF data structure; usually the return value of
+	 *              `exif_read_data()`.
+	 * @return array Returns an array containing `'latitude'` and `'longitude'` keys which define
+	 *         the coordinates of the image data, specified as float values.
+	 */
+	public static function exifCoords($data) {
+		$dataAvailable = (
+			isset($data['GPSLatitudeRef']) && isset($data['GPSLatitude']) ||
+			isset($data['GPSLongitudeRef']) && isset($data['GPSLongitude'])
+		);
+		$result = array();
+
+		if (!$dataAvailable) {
+			return array();
+		}
+
+		foreach (array('latitude', 'longitude') as $key) {
+			$source = 'GPS' . ucfirst($key);
+			list($degrees, $minutes) = $data[$source];
+			$result[$key] = static::degreesToDecimal($degrees, $minutes);
+
+			if (in_array(strtoupper($data[$source . 'Ref']), array('S', 'W'))) {
+				$result[$key] *= -1;
+			}
+		}
+		return $result;
+	}
+
+	/**
+	 * Converts a degrees/minutes pair to a decimal coordinate value.
+	 *
+	 * @param mixed $degrees Number of degrees as a whole number from 0 to 180, as an integer or
+	 *              string.
+	 * @param mixed $minutes The "minutes", or sub-degree offset of the coordinate value.
+	 * @return float Returns the coordinate offset as a decimal value.
+	 */
+	public static function degreesToDecimal($degrees, $minutes) {
+		foreach (compact('degrees', 'minutes') as $key => $value) {
+			if (is_string($value) && strpos($value, '/')) {
+				list($num, $divisor) = explode('/', $value);
+				$value = intval($num) / intval($divisor);
+			}
+			${$key} = is_float($value) ? $value : floatval($value);
+		}
+		$minutes = round($minutes * (166 + 2 / 3));
+		return floatval("{$degrees}.{$minutes}");
+	}
+
+	/**
 	 * Get latitude/longitude points for given address from web service (i.e. Google / Yahoo!).
 	 * 
 	 * @param string $address The address to geocode.
@@ -119,7 +173,7 @@ class Geocoder extends \lithium\core\StaticObject {
 
 			$connection = new $_classes['service'](array(
 				'protocol' => $url['scheme'],
-				'host' => $url['host']
+				'host' => $url['host'],
 			));
 
 			if (!$result = $connection->get("{$url['path']}?{$url['query']}")) {
