@@ -135,6 +135,10 @@ class Locatable extends \lithium\core\StaticObject {
 		$options[$parent] = isset($options[$parent]) ? (array) $options[$parent] : array();
 		$key = ($key == 'near' || $key == 'within') ? $key : null;
 
+		if (isset($options['conditions'][$field]['$' . $key])) {
+			return $options;
+		}
+
 		if (isset($options[0]) && isset($options[1])) {
 			$location = array($options[0], $options[1]);
 			unset($options[0], $options[1]);
@@ -173,11 +177,13 @@ class Locatable extends \lithium\core\StaticObject {
 		switch ($key) {
 			case 'near':
 				$insert[$field]['$' . $key] = array_map('floatval', $location);
+			break;
 			case 'within':
 				$insert[$field]['$' . $key]['$box'] = array(
 					array_map('floatval', $location[1]),
 					array_map('floatval', $location[0])
 				);
+			break;
 		}
 		return $options;
 	}

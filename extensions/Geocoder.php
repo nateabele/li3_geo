@@ -99,7 +99,7 @@ class Geocoder extends \lithium\core\StaticObject {
 	 * @return array Returns an array containing `'latitude'` and `'longitude'` keys which define
 	 *         the coordinates of the image data, specified as float values.
 	 */
-	public static function exifCoords($data) {
+	public static function exifCoords(array $data) {
 		$dataAvailable = (
 			isset($data['GPSLatitudeRef']) && isset($data['GPSLatitude']) ||
 			isset($data['GPSLongitudeRef']) && isset($data['GPSLongitude'])
