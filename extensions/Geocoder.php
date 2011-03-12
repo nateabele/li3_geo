@@ -8,10 +8,10 @@
 
 namespace li3_geo\extensions;
 
-use \lithium\util\String;
-use \lithium\core\Libraries;
-use \lithium\core\Environment;
-use \UnexpectedValueException;
+use lithium\util\String;
+use lithium\core\Libraries;
+use lithium\core\Environment;
+use UnexpectedValueException;
 
 /**
  * The `Geocoder` class handles all geocoding, coordinate calculation, and formula-generation
@@ -26,7 +26,7 @@ class Geocoder extends \lithium\core\StaticObject {
 	 * @var array
 	 */
 	protected static $_classes = array(
-		'service' => '\lithium\net\http\Service'
+		'service' => 'lithium\net\http\Service'
 	);
 
 	/**

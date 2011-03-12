@@ -8,10 +8,10 @@
 
 namespace li3_geo\extensions\data\behavior;
 
-use \lithium\util\String;
-use \lithium\data\Connections;
-use \UnexpectedValueException;
-use \li3_geo\extensions\Geocoder;
+use lithium\util\String;
+use lithium\data\Connections;
+use UnexpectedValueException;
+use li3_geo\extensions\Geocoder;
 
 /**
  * The `Locatable` class handles all geocoding, coordinate calculation, and formula-generation

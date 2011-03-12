@@ -8,7 +8,8 @@
 
 namespace li3_geo\tests\cases\extensions;
 
-use \li3_geo\extensions\Geocoder;
+use li3_geo\extensions\Geocoder;
+use li3_geo\tests\mocks\MockService;
 
 class GeocoderTest extends \lithium\test\Unit {
 
