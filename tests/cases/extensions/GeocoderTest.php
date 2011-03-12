@@ -13,15 +13,21 @@ use li3_geo\tests\mocks\MockService;
 
 class GeocoderTest extends \lithium\test\Unit {
 
+	public $calls = array();
+
+	public function setUp() {
+		Geocoder::__init();
+	}
+
 	public function testInvalidService() {
-		$this->expectException("The lookup service 'foo' does not exist.");
+		$this->expectException("The lookup service `foo` does not exist.");
 		Geocoder::find('foo', '1600 Pennsylvania Ave. Washington DC');
 	}
 
 	public function testGeocodeLookup() {
 		$location = Geocoder::find('google', '1600 Pennsylvania Avenue Northwest, Washington, DC');
-		$expected = array('latitude' => 38.8976463, 'longitude' => -77.036562);
-		$this->assertEqual($expected, $location);
+		$expected = array('latitude' => 38, 'longitude' => -77);
+		$this->assertEqual($expected, array_map('intval', $location));
 	}
 
 	public function testCreateService() {
@@ -40,6 +46,41 @@ class GeocoderTest extends \lithium\test\Unit {
 		$data = Geocoder::exifCoords($exif);
 		$expected = array('latitude' => 40.7643, 'longitude' => -73.9735);
 		$this->assertEqual($expected, $data);
+
+		$this->assertEqual(array(), Geocoder::exifCoords(array()));
+	}
+
+	public function testContext() {
+		Geocoder::context(array('host' => 'http://foo/'));
+		$this->assertEqual('http://foo/', Geocoder::context('host'));
+
+		Geocoder::__init();
+		$this->assertNull(Geocoder::context('host'));
+	}
+
+	public function testCustomService() {
+		$service = new MockService();
+		$service->binding =& $this;
+
+		Geocoder::config(array('classes' => array('service' => &$service)));
+
+		Geocoder::services('foo', array(
+			'url' => 'http://foo/bar/{:address}?key={:key}',
+			'parser' => function($data) {
+				return array_map('floatval', explode(', ', $data));
+			}
+		));
+
+		$this->assertEqual(array(), Geocoder::find('foo', 'A location'));
+		$this->assertEqual('/bar/A%20location?key=', end($this->calls));
+
+		Geocoder::context(array(
+			'host' => 'http://foo',
+			'keys' => array('foo' => array('http://foo' => 'theKey123'))
+		));
+
+		$this->assertEqual(array(84.13, 11.38), Geocoder::find('foo', "A location"));
+		$this->assertEqual('/bar/A%20location?key=theKey123', end($this->calls));
 	}
 }
 

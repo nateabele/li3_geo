@@ -58,16 +58,32 @@ class Geocoder extends \lithium\core\StaticObject {
 	);
 
 	public static function __init() {
+		static::$_context = Libraries::get('li3_geo');
+		static::$_services = array();
+		static::$_classes = array('service' => 'lithium\net\http\Service');
+
 		static::$_services['google'] = array(
 			'url' => 'http://maps.google.com/maps/geo?&q={:address}&output=csv&key={:key}',
 			'parser' => '/200,[^,]+,(?P<latitude>[^,]+),(?P<longitude>[^,\s]+)/',
 		);
-		static::$_services['yahoo'] = array(
-			'url' => 'http://api.local.yahoo.com/MapsService/V1/geocode' .
-			          '?appid={:key}&location={:address}',
-			'parser' => '/<Latitude>(?P<latitude>.*)<\/Latitude>' .
-			            '<Longitude>(?P<longitude>.*)<\/Longitude>/U',
-		);
+
+		$url = 'http://api.local.yahoo.com/MapsService/V1/geocode?appid={:key}&location={:address}';
+		$parser = '/<Latitude>(?P<latitude>.*)<\/Latitude><Longitude>(?P<longitude>.*)';
+		$parser .= '<\/Longitude>/U';
+
+		static::$_services['yahoo'] = compact('url', 'parser');
+	}
+
+	/**
+	 * Allows the class to be configured with custom dependencies.
+	 *
+	 * @param array $config An array containing a `'classes'` key.
+	 * @return void
+	 */
+	public static function config(array $config = array()) {
+		if (isset($config['classes'])) {
+			static::$_classes = array_merge(static::$_classes, $config['classes']);
+		}
 	}
 
 	/**
@@ -106,13 +122,11 @@ class Geocoder extends \lithium\core\StaticObject {
 	 *         the coordinates of the image data, specified as float values.
 	 */
 	public static function exifCoords(array $data) {
-		$dataAvailable = (
-			isset($data['GPSLatitudeRef']) && isset($data['GPSLatitude']) ||
-			isset($data['GPSLongitudeRef']) && isset($data['GPSLongitude'])
-		);
+		$expectedKeys = array('GPSLatitudeRef', 'GPSLatitude', 'GPSLongitudeRef', 'GPSLongitude');
 		$result = array();
+		$keys = array_combine($expectedKeys, $expectedKeys);
 
-		if (!$dataAvailable) {
+		if (array_intersect_key($keys, $data) != $keys) {
 			return array();
 		}
 
@@ -163,24 +177,25 @@ class Geocoder extends \lithium\core\StaticObject {
 			$address = $params['address'];
 
 			if (!$config = Geocoder::services($service)) {
-				$message = "The lookup service '{$service}' does not exist.";
+				$message = "The lookup service `{$service}` does not exist.";
 				throw new UnexpectedValueException($message);
 			}
 
 			$key = null;
 			$host = Geocoder::context('host');
 			$address = rawurlencode($address);
-			$appConfig = Libraries::get('li3_geo');
 
-			if (isset($appConfig['keys'][$service][$host])) {
-				$key = $appConfig['keys'][$service][$host];
+			if (($ctxKey = $self::context('keys')) && isset($ctxKey[$service][$host])) {
+				$key = $ctxKey[$service][$host];
 			}
-			$url = parse_url(String::insert($config['url'], compact('key', 'address')));
+			$url = parse_url(String::insert($config['url'], compact('key', 'address'))) + array(
+				'path' => null, 'query' => null
+			);
 
-			$connection = new $_classes['service'](array(
+			$connection = $self::invokeMethod('_instance', array('service', array(
 				'protocol' => $url['scheme'],
 				'host' => $url['host'],
-			));
+			)));
 
 			if (!$result = $connection->get("{$url['path']}?{$url['query']}")) {
 				return;
@@ -188,10 +203,7 @@ class Geocoder extends \lithium\core\StaticObject {
 
 			switch (true) {
 				case is_string($config['parser']) && preg_match($config['parser'], $result, $match):
-					return array(
-						'latitude' => floatval($match['latitude']),
-						'longitude' => floatval($match['longitude'])
-					);
+					return array_diff_key(array_map('floatval', $match), range(0, 10));
 				case is_callable($parser = $config['parser']):
 					return $parser($result);
 			}
