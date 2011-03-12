@@ -54,7 +54,11 @@ class Geocoder extends \lithium\core\StaticObject {
 	 * @var array
 	 */
 	protected static $_units = array(
-		'K' => 1.609344, 'N' => 0.868976242, 'F' => 5280, 'I' => 63360, 'M' => 1
+		'K' => 1.609344,
+		'N' => 0.868976242,
+		'F' => 5280,
+		'I' => 63360,
+		'M' => 1
 	);
 
 	public static function __init() {
@@ -176,7 +180,7 @@ class Geocoder extends \lithium\core\StaticObject {
 			$service = $params['service'];
 			$address = $params['address'];
 
-			if (!$config = Geocoder::services($service)) {
+			if (!$config = $self::services($service)) {
 				$message = "The lookup service `{$service}` does not exist.";
 				throw new UnexpectedValueException($message);
 			}
@@ -208,6 +212,29 @@ class Geocoder extends \lithium\core\StaticObject {
 					return $parser($result);
 			}
 		});
+	}
+
+	/**
+	 * Calculates the distance between to geographic coordinates using the circle distance formula.
+	 *
+	 * @see li3_geo\extensions\Geocoder::$_units
+	 * @param array $a An array representing "Point A" in the distance comparison. Should contain
+	 *              two keys: latitude and longitude.
+	 * @param array $b An array representing "Point B" in the distance comparison. Same format as
+	 *              `$a`.
+	 * @param mixed $unit Either a numeric multiplier, where `1` represents a mile, Or a string key
+	 *              representing an available unit conversion. See the `$_units` property for
+	 *              possible values.
+	 */
+	public static function distance(array $a, array $b, $unit = 'M') {
+		list($lat1, $lon1) = array_values($a);
+		list($lat2, $lon2) = array_values($b);
+
+		$unit = isset(static::$_units[$unit]) ? static::$_units[$unit] : floatval($unit);
+		$sin = sin(deg2rad($lat1)) * sin(deg2rad($lat2));
+		$cos = cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * cos(deg2rad($lon1 - $lon2));
+
+		return 69.09 * rad2deg(acos($sin + $cos)) * $unit;
 	}
 }
 

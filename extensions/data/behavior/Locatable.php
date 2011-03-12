@@ -9,9 +9,8 @@
 namespace li3_geo\extensions\data\behavior;
 
 use lithium\util\String;
-use lithium\data\Connections;
 use UnexpectedValueException;
-use li3_geo\extensions\Geocoder;
+use lithium\data\source\MongoDb;
 
 /**
  * The `Locatable` class handles all geocoding, coordinate calculation, and formula-generation
@@ -27,6 +26,15 @@ class Locatable extends \lithium\core\StaticObject {
 	 * @var array
 	 */
 	protected static $_configurations = array();
+
+	/**
+	 * Class dependencies.
+	 *
+	 * @var array
+	 */
+	protected static $_classes = array(
+		'geocoder' => 'li3_geo\extensions\Geocoder'
+	);
 
 	/**
 	 * Binds geocoding functionality to the model specified.
@@ -50,8 +58,9 @@ class Locatable extends \lithium\core\StaticObject {
 			'format' => '{:address} {:city}, {:state} {:zip}'
 		);
 		$config += $defaults;
+		$geocoder = static::$_classes['geocoder'];
 
-		if (!Geocoder::services($config['service'])) {
+		if (!$geocoder::services($config['service'])) {
 			$message = "The lookup service '{$config['service']}' does not exist.";
 			throw new UnexpectedValueException($message);
 		}
@@ -79,35 +88,15 @@ class Locatable extends \lithium\core\StaticObject {
 	 * Get the geocode latitude/longitude points from given address.
 	 * Look in the cache first, otherwise get from web service (i.e. Google or Yahoo!).
 	 * 
-	 * @param object $record A `Record` or `Document` object containing the address data to be
+	 * @param object $entity A `Record` or `Document` object containing the address data to be
 	 *               geocoded.
 	 */
-	public static function geocode($record) {
-		$class = $record->model();
-		$data = array_map('trim', $record->data());
+	public static function geocode($entity) {
+		$class = $entity->model();
+		$geocoder = static::$_classes['geocoder'];
+		$data = array_map('trim', array_filter('is_string', $entity->data()));
 		$address = trim(String::insert(static::$_configurations[$model]['format'], $data));
-		return $address ? Geocoder::find($address) : null;
-	}
-
-	/**
-	 * Calculate the distance between to geographic coordinates using the circle distance formula
-	 * 
-	 * @param array $a An array representing "Point A" in the distance comparison. Should contain
-	 *              two keys: latitude and longitude.
-	 * @param array $b An array representing "Point B" in the distance comparison. Same format as
-	 *              `$a`.
-	 * @param mixed $unit   M=miles, K=kilometers, N=nautical miles, I=inches, F=feet
-	 */
-	public static function distance(array $a, array $b, $unit = 'M') {
-		list($lat1, $lon1) = $a;
-		list($lat2, $lon2) = $b;
-
-		$sin = sin(deg2rad($lat1)) * sin(deg2rad($lat2));
-		$cos = cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * cos(deg2rad($lon1 - $lon2));
-		$distance = 69.09 * rad2deg(acos($sin + $cos));
-
-		$unit = isset(static::$_units[$unit]) ? static::$_units[$unit] : floatval($unit);
-		return $distance * $unit;
+		return $address ? $geocoder::find($address) : null;
 	}
 
 	public static function index($class, array $keys, array $options = array()) {
@@ -115,8 +104,7 @@ class Locatable extends \lithium\core\StaticObject {
 		$options += $defaults;
 
 		$meta = $class::meta();
-		$database = Connections::get($meta['connection']);
-
+		$database = $class::connection();
 		list($latitude, $longitude) = $keys;
 		$base = static::_baseField($latitude, $longitude);
 
@@ -124,7 +112,7 @@ class Locatable extends \lithium\core\StaticObject {
 			return false;
 		}
 
-		if (is_a($database, 'lithium\data\source\MongoDb')) {
+		if ($database instanceof MongoDb) {
 			$index = array($base => '2d') + $options['include'];
 			$collection = $meta['source'];
 			unset($options['include']);
@@ -134,7 +122,6 @@ class Locatable extends \lithium\core\StaticObject {
 
 	protected static function _formatParameters($class, $key, $options) {
 		$type = $key;
-		$location = array();
 		$parent = 'conditions';
 		$config = static::$_configurations[$class];
 		$field = static::_baseField($config['fields'][0], $config['fields'][1]);
@@ -144,23 +131,7 @@ class Locatable extends \lithium\core\StaticObject {
 		if (isset($options['conditions'][$field]['$' . $key])) {
 			return $options;
 		}
-
-		if (isset($options[0]) && isset($options[1])) {
-			$location = array($options[0], $options[1]);
-			unset($options[0], $options[1]);
-		}
-		if ($key && isset($options[$key])) {
-			$location = $options[$key];
-			unset($options[$key]);
-		}
-		if (isset($options[$parent][$field])) {
-			$location = $options[$parent][$field];
-			unset($options[$parent][$field]);
-		}
-		if (isset($options[$field])) {
-			$location = $options[$field];
-			unset($options[$field]);
-		}
+		list($location, $options) = static::_fixOptions($options);
 
 		if (!$location) {
 			return $options;
@@ -192,6 +163,28 @@ class Locatable extends \lithium\core\StaticObject {
 			break;
 		}
 		return $options;
+	}
+
+	protected static function _fixOptions($options) {
+		$location = array();
+
+		if (isset($options[0]) && isset($options[1])) {
+			$location = array($options[0], $options[1]);
+			unset($options[0], $options[1]);
+		}
+		if ($key && isset($options[$key])) {
+			$location = $options[$key];
+			unset($options[$key]);
+		}
+		if (isset($options[$parent][$field])) {
+			$location = $options[$parent][$field];
+			unset($options[$parent][$field]);
+		}
+		if (isset($options[$field])) {
+			$location = $options[$field];
+			unset($options[$field]);
+		}
+		return array($location, $options);
 	}
 
 	protected static function _baseField($latitude, $longitude) {

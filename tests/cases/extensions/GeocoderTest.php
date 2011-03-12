@@ -82,6 +82,21 @@ class GeocoderTest extends \lithium\test\Unit {
 		$this->assertEqual(array(84.13, 11.38), Geocoder::find('foo', "A location"));
 		$this->assertEqual('/bar/A%20location?key=theKey123', end($this->calls));
 	}
+
+	public function testDistanceCalculation() {
+		$a = array(40.625316, -74.025972);
+		$b = array(40.755473, -73.980855);
+
+		$distance = Geocoder::distance($a, $b);
+		$this->assertEqual(9.298, round($distance, 3));
+
+		$distance = Geocoder::distance($a, $b, 'F');
+		$this->assertEqual(49093, round($distance));
+
+		$b = array('latitude' => 44.7525199, 'longitude' => -93.244557);
+		$distance = Geocoder::distance($a, $b, 'K');
+		$this->assertEqual(1632, round($distance));
+	}
 }
 
 ?>
