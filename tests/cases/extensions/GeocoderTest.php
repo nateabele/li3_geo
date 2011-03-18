@@ -25,6 +25,7 @@ class GeocoderTest extends \lithium\test\Unit {
 	}
 
 	public function testGeocodeLookup() {
+		$this->skipIf(dns_check_record("google.com") === false, "No internet connection.");
 		$location = Geocoder::find('google', '1600 Pennsylvania Avenue Northwest, Washington, DC');
 		$expected = array('latitude' => 38, 'longitude' => -77);
 		$this->assertEqual($expected, array_map('intval', $location));
