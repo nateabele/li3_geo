@@ -71,9 +71,9 @@ class Geocoder extends \lithium\core\StaticObject {
 			'parser' => '/200,[^,]+,(?P<latitude>[^,]+),(?P<longitude>[^,\s]+)/',
 		);
 
-		$url = 'http://api.local.yahoo.com/MapsService/V1/geocode?appid={:key}&location={:address}';
-		$parser = '/<Latitude>(?P<latitude>.*)<\/Latitude><Longitude>(?P<longitude>.*)';
-		$parser .= '<\/Longitude>/U';
+		$url = 'http://where.yahooapis.com/geocode?appid={:key}&location={:address}';
+		$parser = '/<latitude>(?P<latitude>.*)<\/latitude><longitude>(?P<longitude>.*)';
+		$parser .= '<\/longitude>/U';
 
 		static::$_services['yahoo'] = compact('url', 'parser');
 	}
@@ -119,7 +119,7 @@ class Geocoder extends \lithium\core\StaticObject {
 	 *
 	 * This method expects an array of EXIF data containing the following keys:
 	 *
-	 * @see http://php.net/manual/en/function.exif-read-data.php PHP Manual: exif_read_data()
+	 * @link http://php.net/manual/en/function.exif-read-data.php PHP Manual: `exif_read_data()`
 	 * @param array $data An array containing an EXIF data structure; usually the return value of
 	 *              `exif_read_data()`.
 	 * @return array Returns an array containing `'latitude'` and `'longitude'` keys which define
