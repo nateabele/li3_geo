@@ -26,9 +26,13 @@ class GeocoderTest extends \lithium\test\Unit {
 
 	public function testGeocodeLookup() {
 		$this->skipIf(dns_check_record("google.com") === false, "No internet connection.");
-		$location = Geocoder::find('google', '1600 Pennsylvania Avenue Northwest, Washington, DC');
-		$expected = array('latitude' => 38, 'longitude' => -77);
-		$this->assertEqual($expected, array_map('intval', $location));
+		$addr = '1600 Pennsylvania Avenue Northwest, Washington, DC';
+
+		foreach (array('google', 'yahoo') as $service) {
+			$location = Geocoder::find($service, $addr);
+			$expected = array('latitude' => 38, 'longitude' => -77);
+			$this->assertEqual($expected, array_map('intval', $location));
+		}
 	}
 
 	public function testCreateService() {
@@ -82,6 +86,13 @@ class GeocoderTest extends \lithium\test\Unit {
 
 		$this->assertEqual(array(84.13, 11.38), Geocoder::find('foo', "A location"));
 		$this->assertEqual('/bar/A%20location?key=theKey123', end($this->calls));
+
+		Geocoder::services('foo', array(
+			'url' => 'http://foo/bar/{:address}?key={:key}',
+			'parser' => function($data) {
+				return array_map('floatval', explode(', ', $data));
+			}
+		));
 	}
 
 	public function testDistanceCalculation() {
