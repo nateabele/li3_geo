@@ -48,7 +48,7 @@ class Locatable extends \lithium\core\StaticObject {
 	 *                addresses. You can configure custom lookup services, but by default, the
 	 *                available options are `'google'` or `'yahoo'`. Attempting to use an undefined
 	 *                service will result in an exception.
-	 *             
+	 *
 	 */
 	public static function bind($class, array $config = array()) {
 		$defaults = array(
@@ -87,7 +87,7 @@ class Locatable extends \lithium\core\StaticObject {
 	/**
 	 * Get the geocode latitude/longitude points from given address.
 	 * Look in the cache first, otherwise get from web service (i.e. Google or Yahoo!).
-	 * 
+	 *
 	 * @param object $entity A `Record` or `Document` object containing the address data to be
 	 *               geocoded.
 	 */
@@ -131,7 +131,7 @@ class Locatable extends \lithium\core\StaticObject {
 		if (isset($options['conditions'][$field]['$' . $key])) {
 			return $options;
 		}
-		list($location, $options) = static::_fixOptions($options);
+		list($location, $options) = static::_fixOptions(compact('key', 'parent', 'field'), $options);
 
 		if (!$location) {
 			return $options;
@@ -165,7 +165,10 @@ class Locatable extends \lithium\core\StaticObject {
 		return $options;
 	}
 
-	protected static function _fixOptions($options) {
+	protected static function _fixOptions(array $params = array(), $options) {
+		$key = $parent = $field = null;
+		extract($params, EXTR_IF_EXISTS);
+
 		$location = array();
 
 		if (isset($options[0]) && isset($options[1])) {
