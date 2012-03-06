@@ -6,7 +6,6 @@
  * @license       http://opensource.org/licenses/bsd-license.php The BSD License
  */
 
-
 use lithium\action\Dispatcher;
 use li3_geo\extensions\Geocoder;
 

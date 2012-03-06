@@ -12,6 +12,7 @@ use lithium\util\String;
 use lithium\core\Libraries;
 use lithium\core\Environment;
 use UnexpectedValueException;
+use lithium\core\ConfigException;
 
 /**
  * The `Geocoder` class handles all geocoding, coordinate calculation, and formula-generation
@@ -61,21 +62,66 @@ class Geocoder extends \lithium\core\StaticObject {
 		'M' => 1
 	);
 
+	/**
+	 * Initializes the default values for services and configuration.
+	 *
+	 * @return void
+	 */
 	public static function __init() {
+		static::reset();
+	}
+
+	/**
+	 * Resets service and configuration data to their defaults.
+	 *
+	 * @return void
+	 */
+	public static function reset() {
 		static::$_context = Libraries::get('li3_geo');
 		static::$_services = array();
-		static::$_classes = array('service' => 'lithium\net\http\Service');
+		$at = 'latitude';
+		$on = 'longitude';
 
-		static::$_services['google'] = array(
-			'url' => 'http://maps.google.com/maps/geo?&q={:address}&output=csv&key={:key}',
-			'parser' => '/200,[^,]+,(?P<latitude>[^,]+),(?P<longitude>[^,\s]+)/',
+		static::$_services += array(
+			'osm' => array(
+				'host'    => 'http://nominatim.openstreetmap.org',
+				'coords'  => '/search?q={:address}&format=json',
+				'address' => '/reverse?lat={:latitude}&lon={:longitude}&format=json',
+				'parser'  => array(
+					'coords' => function($data) {
+						$data = json_decode($data, true);
+
+						return array(
+							'latitude' => floatval($data[0]['lat']),
+							'longitude' => floatval($data[0]['lon'])
+						);
+					},
+					'address' => function($data) {
+						$data = json_decode($data, true);
+						return $data['address'];
+					}
+				)
+			),
+			'google' => array(
+				'host'    => 'http://maps.googleapis.com',
+				'coords'  => '/maps/geo?&q={:address}&output=csv',
+				'address' => '/maps/api/geocode/json?latlng={:latitude},{:longitude}&sensor=false',
+				'parser'  => array(
+					'coords'  => "/200,[^,]+,(?P<{$at}>[^,]+),(?P<{$on}>[^,\s]+)/",
+					'address' => function($data) {
+						$data = json_decode($data, true);
+						return isset($data['results'][0]) ? $data['results'][0] : null;
+					}
+				),
+			),
+			'yahoo' => array(
+				'host'   => 'http://where.yahooapis.com',
+				'coords' => '/geocode?appid={:key}&location={:address}',
+				'parser' => array(
+					'coords' => "/<{$at}>(?P<{$at}>.*)<\/{$at}><{$on}>(?P<{$on}>.*)<\/{$on}>/U"
+				)
+			)
 		);
-
-		$url = 'http://where.yahooapis.com/geocode?appid={:key}&location={:address}';
-		$parser = '/<latitude>(?P<latitude>.*)<\/latitude><longitude>(?P<longitude>.*)';
-		$parser .= '<\/longitude>/U';
-
-		static::$_services['yahoo'] = compact('url', 'parser');
 	}
 
 	/**
@@ -168,50 +214,89 @@ class Geocoder extends \lithium\core\StaticObject {
 
 	/**
 	 * Get latitude/longitude points for given address from web service (i.e. Google / Yahoo!).
-	 * 
+	 *
+	 * @param string $service The name of the service to use, i.e. `'google'` or `'osm'`.
 	 * @param string $address The address to geocode.
 	 * @return array Latitude and longitude data, or `false` on failure.
 	 */
-	public static function find($service, $address) {
+	public static function coords($service, $address) {
 		$params = compact('service', 'address');
-		$_classes = static::$_classes;
 
-		return static::_filter(__FUNCTION__, $params, function($self, $params) use ($_classes) {
+		return static::_filter(__FUNCTION__, $params, function($self, $params) {
+			$address = rawurlencode($params['address']);
 			$service = $params['service'];
-			$address = $params['address'];
-
-			if (!$config = $self::services($service)) {
-				$message = "The lookup service `{$service}` does not exist.";
-				throw new UnexpectedValueException($message);
-			}
-
-			$key = null;
-			$host = Geocoder::context('host');
-			$address = rawurlencode($address);
-
-			if (($ctxKey = $self::context('keys')) && isset($ctxKey[$service][$host])) {
-				$key = $ctxKey[$service][$host];
-			}
-			$url = parse_url(String::insert($config['url'], compact('key', 'address'))) + array(
-				'path' => null, 'query' => null
-			);
-
-			$connection = $self::invokeMethod('_instance', array('service', array(
-				'protocol' => $url['scheme'],
-				'host' => $url['host'],
-			)));
-
-			if (!$result = $connection->get("{$url['path']}?{$url['query']}")) {
-				return;
-			}
-
-			switch (true) {
-				case is_string($config['parser']) && preg_match($config['parser'], $result, $match):
-					return array_diff_key(array_map('floatval', $match), range(0, 10));
-				case is_callable($parser = $config['parser']):
-					return $parser($result);
-			}
+			return $self::run('coords', $service, compact('address'));
 		});
+	}
+
+	/**
+	 * Get address information for the given set of coordinates.
+	 *
+	 * @param string $service The name of the service to use, i.e. `'google'` or `'osm'`.
+	 * @param float $latitude Coordinate latitude.
+	 * @param float $longitude Coordinate longitude.
+	 * @return array Address information.
+	 */
+	public static function address($service, $latitude, $longitude) {
+		$params = compact('service', 'latitude', 'longitude');
+
+		return static::_filter(__FUNCTION__, $params, function($self, $params) {
+			$service = $params['service'];
+			unset($params['service']);
+			return $self::run('address', $service, $params);
+		});
+	}
+
+	public static function run($type, $service, array $data) {
+		$host = static::context('host');
+		$key  = null;
+
+		if (!$config = static::services($service)) {
+			throw new UnexpectedValueException("The lookup service `{$service}` does not exist.");
+		}
+		if (!isset($config[$type]) || !isset($config['parser'][$type])) {
+			$msg = "The lookup service `{$service}` is not configured for `{$type}` operations.";
+			throw new ConfigException($msg);
+		}
+		if (($ctxKey = static::context('keys')) && isset($ctxKey[$service][$host])) {
+			$key = $ctxKey[$service][$host];
+		}
+		$data += compact('key');
+
+		if (!$result = static::_connection($service)->get(String::insert($config[$type], $data))) {
+			return;
+		}
+		return static::_parse($config['parser'][$type], $result);
+	}
+
+	/**
+	 * Gets a connection object instance configured for a given geocoder service.
+	 *
+	 * @param string The service name to get the connection for, i.e. `'google'` or `'osm'`.
+	 * @return object Returns an instance of the class configured in `$_classes['service']`.
+	 */
+	protected static function _connection($service) {
+		$config = static::services($service);
+		list($scheme, $host) = explode(':', $config['host']);
+		$host = trim($host, '/');
+		return static::_instance('service', compact('scheme', 'host'));
+	}
+
+	/**
+	 * Passes raw geocoder service data through a configured parser to convert it to a standard
+	 * format.
+	 *
+	 * @param mixed $parser Either a callback, or a regular expression.
+	 * @param string $data Raw data returned from the geocoder service.
+	 * @return mixed Returns parsed, structured data from the geocoder service parser.
+	 */
+	protected static function _parse($parser, $data) {
+		if (is_callable($parser)) {
+			return $parser($data);
+		}
+		if (is_string($parser) && preg_match($parser, $data, $match)) {
+			return array_diff_key(array_map('floatval', $match), range(0, 10));
+		}
 	}
 
 	/**

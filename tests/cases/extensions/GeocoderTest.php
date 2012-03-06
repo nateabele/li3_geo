@@ -21,24 +21,28 @@ class GeocoderTest extends \lithium\test\Unit {
 
 	public function testInvalidService() {
 		$this->expectException("The lookup service `foo` does not exist.");
-		Geocoder::find('foo', '1600 Pennsylvania Ave. Washington DC');
+		Geocoder::coords('foo', '1600 Pennsylvania Ave. Washington DC');
 	}
 
-	public function testGeocodeLookup() {
+	public function testGeocodeLookupAndReverse() {
 		$this->skipIf(dns_check_record("google.com") === false, "No internet connection.");
 		$addr = '1600 Pennsylvania Avenue Northwest, Washington, DC';
 
-		foreach (array('google', 'yahoo') as $service) {
-			$location = Geocoder::find($service, $addr);
+		foreach (array('google', 'osm') as $service) {
+			$location = Geocoder::coords($service, $addr);
 			$expected = array('latitude' => 38, 'longitude' => -77);
 			$this->assertEqual($expected, array_map('intval', $location));
+
+			$address = Geocoder::address($service, $location['latitude'], $location['longitude']);
+			$this->assertTrue(is_array($address));
 		}
 	}
 
 	public function testCreateService() {
-		Geocoder::__init();
-		Geocoder::services('foo', array('url' => 'http://localhost', 'parser' => null));
-		$this->assertEqual(array('google', 'yahoo', 'foo'), array_keys(Geocoder::services()));
+		Geocoder::reset();
+		Geocoder::services('foo', array('host' => 'http://localhost', 'parser' => null));
+		$expected = array('osm', 'google', 'yahoo', 'foo');
+		$this->assertEqual($expected, array_keys(Geocoder::services()));
 	}
 
 	public function testExifConversion() {
@@ -70,13 +74,14 @@ class GeocoderTest extends \lithium\test\Unit {
 		Geocoder::config(array('classes' => array('service' => &$service)));
 
 		Geocoder::services('foo', array(
-			'url' => 'http://foo/bar/{:address}?key={:key}',
-			'parser' => function($data) {
+			'host' => 'http://foo',
+			'coords' => '/bar/{:address}?key={:key}',
+			'parser' => array('coords' => function($data) {
 				return array_map('floatval', explode(', ', $data));
-			}
+			})
 		));
 
-		$this->assertEqual(array(), Geocoder::find('foo', 'A location'));
+		$this->assertEqual(array(), Geocoder::coords('foo', 'A location'));
 		$this->assertEqual('/bar/A%20location?key=', end($this->calls));
 
 		Geocoder::context(array(
@@ -84,14 +89,15 @@ class GeocoderTest extends \lithium\test\Unit {
 			'keys' => array('foo' => array('http://foo' => 'theKey123'))
 		));
 
-		$this->assertEqual(array(84.13, 11.38), Geocoder::find('foo', "A location"));
+		$this->assertEqual(array(84.13, 11.38), Geocoder::coords('foo', "A location"));
 		$this->assertEqual('/bar/A%20location?key=theKey123', end($this->calls));
 
 		Geocoder::services('foo', array(
-			'url' => 'http://foo/bar/{:address}?key={:key}',
-			'parser' => function($data) {
+			'host' => 'http://foo',
+			'coords' => '/bar/{:address}?key={:key}',
+			'parser' => array('coords' => function($data) {
 				return array_map('floatval', explode(', ', $data));
-			}
+			})
 		));
 	}
 
