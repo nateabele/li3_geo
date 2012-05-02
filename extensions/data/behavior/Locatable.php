@@ -1,8 +1,8 @@
 <?php
 /**
- * Lithium: the most rad php framework
+ * li3_geo: Geocoding and location utilities for Lithium, the most rad framework for PHP
  *
- * @copyright     Copyright 2011, Union of RAD (http://union-of-rad.org)
+ * @copyright     Copyright 2012, Union of RAD (http://union-of-rad.org)
  * @license       http://opensource.org/licenses/bsd-license.php The BSD License
  */
 
@@ -34,7 +34,7 @@ class Locatable extends \lithium\core\StaticObject {
 	 * @var array
 	 */
 	protected static $_classes = array(
-		'geocoder' => 'li3_geo\extensions\Geocoder'
+		'geocoder' => 'li3_geo\data\Geocoder'
 	);
 
 	/**
