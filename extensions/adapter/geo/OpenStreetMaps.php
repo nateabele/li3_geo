@@ -68,7 +68,8 @@ class OpenStreetMaps extends Base {
 					return isset($addr[$key]) ? Geocoder::normalizePlace($addr[$key]) : null;
 				};
 				$address = array_filter(array_map($map, $keys));
-				$address['continent'] = Geocoder::continents($address['country']);
+				$continent = Geocoder::continents($address['country']);
+				$address['continent'] = is_array($continent) ? $address['country'] : $continent;
 
 				return compact('raw', 'address') + array(
 					'license' => $raw['licence'],
