@@ -285,6 +285,21 @@ class Geocoder extends \lithium\core\Adaptable {
 
 		return 69.09 * rad2deg(acos($sin + $cos)) * $unit;
 	}
+
+	/**
+	 * Returns a list of available geocoding services
+	 *
+	 * @param string $service (optional) if included, returns a boolean on
+	 *     whether or not the selected service exists
+	 * @return array
+	 */
+	public static function services($service = null) {
+		$services = array_keys(static::$_configurations);
+		if ($service !== null) {
+			return in_array($service, $services);
+		}
+		return $services;
+	}
 }
 
 ?>
