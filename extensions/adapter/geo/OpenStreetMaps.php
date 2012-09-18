@@ -23,7 +23,11 @@ class OpenStreetMaps extends Base {
 
 		$this->_parsers += array(
 			'coords'  => function($data) {
-				list($raw) = json_decode($data, true);
+				$result = json_decode($data, true);
+				if (empty($result)) {
+					return false;
+				}
+				$raw = $result[0];
 				$bounds = array_map('floatval', $raw['boundingbox']);
 
 				return compact('raw') + array(
@@ -39,7 +43,11 @@ class OpenStreetMaps extends Base {
 				);
 			},
 			'address' => function($data) {
-				$raw = json_decode($data, true) + array('address' => array(), 'licence' => null);
+				$result = json_decode($data, true);
+				if (empty($result)) {
+					return false;
+				}
+				$raw = $result + array('address' => array(), 'licence' => null);
 				$addr = $raw['address'];
 				$keys = array(
 					'title' => 'attraction',
