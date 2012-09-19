@@ -119,7 +119,7 @@ class Geocoder extends \lithium\core\Adaptable {
 	 * method that accepts a `$unit` parameter.  All `$unit` parameters also accept an arbitrary
 	 * float value to use for distance conversions.  Unit values are represented as follows:
 	 * M: miles, K: kilometers, N: nautical miles, I: inches, F: feet
-	 * 
+	 *
 	 * @var array
 	 */
 	protected static $_units = array(
@@ -284,6 +284,21 @@ class Geocoder extends \lithium\core\Adaptable {
 		$cos = cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * cos(deg2rad($lon1 - $lon2));
 
 		return 69.09 * rad2deg(acos($sin + $cos)) * $unit;
+	}
+
+	/**
+	 * Returns a list of available geocoding services
+	 *
+	 * @param string $service (optional) if included, returns a boolean on
+	 *     whether or not the selected service exists
+	 * @return array
+	 */
+	public static function services($service = null) {
+		$services = array_keys(static::$_configurations);
+		if ($service !== null) {
+			return in_array($service, $services);
+		}
+		return $services;
 	}
 }
 

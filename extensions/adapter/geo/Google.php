@@ -8,6 +8,8 @@
 
 namespace li3_geo\extensions\adapter\geo;
 
+use li3_geo\data\Geocoder;
+
 class Google extends Base {
 
 	protected $_service = array(
@@ -37,14 +39,91 @@ class Google extends Base {
 	protected function _init() {
 		parent::_init();
 
-		$this->_parsers += array(
-			'coords'  => function($data) {
-				return json_decode($data, true);
-			},
-			'address' => function($data) {
-				$data = json_decode($data, true);
-				return isset($data['results'][0]) ? $data['results'][0] : null;
+		$parse = function($data) {
+			$data = json_decode($data, true);
+			if (!isset($data['results'][0])) {
+				return false;
 			}
+			$result = $raw = $data['results'][0];
+
+			if (isset($raw['geometry']['bounds'])) {
+				$bounds = $raw['geometry']['bounds'];
+				$result += array(
+					'bounds' => array('box' => array(
+						array(
+							'latitude' => $bounds['southwest']['lat'],
+							'longitude' => $bounds['southwest']['lng']
+						),
+						array(
+							'latitude' => $bounds['northeast']['lat'],
+							'longitude' => $bounds['northeast']['lng']
+						)
+					))
+				);
+			}
+
+			if (isset($raw['geometry']['location'])) {
+				$result += array(
+					'coordinates' => array(
+						'latitude' => $raw['geometry']['location']['lat'],
+						'longitude' => $raw['geometry']['location']['lng']
+					)
+				);
+			}
+
+			$keys = array(
+				'title' => 'point_of_interest',
+				'number' => 'street_number',
+				'street' => 'route',
+				'neighborhood' => array(
+					'neighborhood',
+					'sublocality'
+				),
+				'city' => 'locality',
+				'county' => 'administrative_area_level_2',
+				'state' => 'administrative_area_level_1',
+				'province' => 'administrative_area_level_1',
+				'postalCode' => 'postal_code',
+				'country' => 'country'
+			);
+			if (isset($raw['address_components'])) {
+				$addr = $raw['address_components'];
+				$map = function($key) use ($addr) {
+					$value = null;
+					if (is_array($key)) {
+						foreach ($key as $test) {
+							foreach ($addr as $component) {
+								if (in_array($test, $component['types'])) {
+									$value = $component['long_name'];
+									break 2;
+								}
+							}
+						}
+					} else {
+						foreach ($addr as $component) {
+							if (in_array($key, $component['types'])) {
+								$value = $component['long_name'];
+								break;
+							}
+						}
+					}
+					if ($value === null) {
+						return null;
+					}
+					return Geocoder::normalizePlace($value);
+				};
+				$address = array_filter(array_map($map, $keys));
+				$continent = Geocoder::continents($address['country']);
+				$address['continent'] = is_array($continent) ? $address['country'] : $continent;
+				$result += compact('address');
+			}
+
+			return $result;
+		};
+
+		$this->_parsers += array(
+			'coords'  => $parse,
+			'address' => $parse
 		);
 	}
 }
