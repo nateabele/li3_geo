@@ -119,7 +119,7 @@ class Geocoder extends \lithium\core\Adaptable {
 	 * method that accepts a `$unit` parameter.  All `$unit` parameters also accept an arbitrary
 	 * float value to use for distance conversions.  Unit values are represented as follows:
 	 * M: miles, K: kilometers, N: nautical miles, I: inches, F: feet
-	 * 
+	 *
 	 * @var array
 	 */
 	protected static $_units = array(
