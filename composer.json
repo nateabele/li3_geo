@@ -1,0 +1,29 @@
+{
+	"name": "nateabele/li3_geo",
+	"type": "lithium-library",
+	"description": "Adds geospatial support to Lithium for multiple databases, including MongoDB, CouchDB and MySQL.",
+	"keywords": ["geo", "geospatial", "databases"],
+	"homepage": "https://github.com/nateabele/li3_geo",
+	"license": "MIT License",
+	"authors": [
+		{
+			"name": "Nate Abele",
+			"email": "nate.abele@gmail.com",
+			"homepage": "http://nateabele.com/"
+		},
+		{
+			"name": "Rob Marscher",
+			"email": "rob@robmarscher.com",
+			"homepage": "https://github.com/rmarscher"
+		},
+		{
+			"name": "Christopher Snyder",
+			"email": "kb1rma@arrl.net",
+			"homepage": "https://github.com/KB1RMA"
+		}
+	],
+	"require": {
+		"php": ">=5.3",
+		"composer/installers": "*"
+	}
+}
