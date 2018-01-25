@@ -4,7 +4,7 @@
 	"description": "Adds geospatial support to Lithium for multiple databases, including MongoDB, CouchDB and MySQL.",
 	"keywords": ["geo", "geospatial", "databases"],
 	"homepage": "https://github.com/nateabele/li3_geo",
-	"license": "MIT License",
+	"license": "MIT",
 	"authors": [
 		{
 			"name": "Nate Abele",
